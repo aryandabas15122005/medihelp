@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard | MediHelp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: '#0ea5e9', dark: '#0f172a', panel: '#1e293b' }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        select option { background: #1e293b; color: white; }
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; cursor: pointer; }
+    </style>
+</head>
+<body class="bg-dark text-white min-h-screen flex font-sans overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 glass-dark border-r border-white/10 flex flex-col justify-between hidden md:flex shrink-0 z-20 relative">
+        <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
+        <div>
+            <div class="h-20 flex items-center px-6 border-b border-white/5">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center font-bold text-lg mr-3">P</div>
+                <span class="font-bold text-xl tracking-wide">MediHelp</span>
+            </div>
+            <nav class="p-4 space-y-2 mt-4 relative z-10">
+                <a href="#" onclick="switchView('overview'); return false;" id="nav-overview" class="nav-btn active-nav flex items-center gap-3 px-4 py-3 rounded-xl transition-all">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    Overview
+                </a>
+                <a href="#" onclick="switchView('schedule'); return false;" id="nav-schedule" class="nav-btn flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 px-4 py-3 rounded-xl transition-all">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    Book Appointment
+                </a>
+                <a href="#" onclick="switchView('appointments'); return false;" id="nav-appointments" class="nav-btn flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 px-4 py-3 rounded-xl transition-all">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                    My Appointments
+                </a>
+                <a href="#" onclick="switchView('chat'); return false;" id="nav-chat" class="nav-btn flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 px-4 py-3 rounded-xl transition-all">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                    Health Assistant
+                    <span class="ml-auto w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                </a>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-white/5 relative z-10">
+            <button onclick="logout()" class="flex items-center gap-3 text-gray-400 hover:text-red-400 hover:bg-white/5 px-4 py-3 rounded-xl transition-all w-full">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-primary rounded-full mix-blend-multiply filter blur-[150px] opacity-10 pointer-events-none"></div>
+
+        <!-- Header -->
+        <header class="h-20 glass flex items-center justify-between px-8 shrink-0 z-10 border-b border-white/5 relative">
+            <div>
+                <h1 class="text-2xl font-semibold">Hello, <span id="userName">Patient</span> 👋</h1>
+                <p class="text-sm text-gray-400" id="headerDate">Loading...</p>
+            </div>
+            <div class="flex items-center gap-4 relative">
+                <!-- Notifications -->
+                <div class="relative">
+                    <button onclick="toggleNotifications()" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition relative">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                        <span id="notifBadge" class="hidden absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-dark"></span>
+                    </button>
+                    <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-72 glass-dark border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                        <div class="px-4 py-3 border-b border-white/5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Notifications</div>
+                        <div id="notifList" class="max-h-64 overflow-y-auto p-2 text-sm text-gray-400 text-center py-6">No new notifications.</div>
+                    </div>
+                </div>
+                <!-- Profile Avatar -->
+                <div class="relative">
+                    <div onclick="toggleDropdown()" id="avatarBtn" class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-blue-400 flex items-center justify-center cursor-pointer font-bold text-lg select-none" title="Profile Menu">
+                        <span id="avatarInitial">?</span>
+                    </div>
+                    <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 glass-dark border border-white/10 rounded-xl shadow-xl overflow-hidden z-50">
+                        <div class="px-4 py-3 border-b border-white/5">
+                            <p class="text-sm font-semibold" id="dropName">Patient</p>
+                            <p class="text-xs text-gray-400" id="dropEmail">—</p>
+                        </div>
+                        <button onclick="openProfileModal()" class="w-full text-left px-4 py-3 hover:bg-white/5 text-sm transition flex items-center gap-2">
+                            <svg class="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            Edit Profile
+                        </button>
+                        <button onclick="logout()" class="w-full text-left px-4 py-3 hover:bg-white/5 text-sm transition text-rose-400 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-8 relative z-10">
+
+            <!-- VIEW: Overview -->
+            <div id="view-overview" class="view-section active">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Personal Info Card -->
+                    <div class="glass-dark rounded-2xl p-6 border border-white/5 hover-float animate-fade-up delay-100">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            </div>
+                            <h3 class="text-gray-300 font-semibold">Personal Info</h3>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span class="text-gray-500">Age</span><span class="font-medium" id="disp-age">—</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">Blood Type</span><span class="font-medium text-rose-400" id="disp-blood">—</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">Address</span><span class="font-medium text-xs text-right max-w-[60%] truncate" id="disp-address">—</span></div>
+                        </div>
+                        <button onclick="openProfileModal()" class="mt-4 w-full text-xs text-primary hover:text-primary/80 transition flex items-center justify-center gap-1">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            Edit Profile
+                        </button>
+                    </div>
+                    <!-- Vitals Card -->
+                    <div class="glass-dark rounded-2xl p-6 border border-white/5 hover-float animate-fade-up delay-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                            </div>
+                            <h3 class="text-gray-300 font-semibold">Vitals</h3>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span class="text-gray-500">Height</span><span class="font-medium" id="disp-height">—</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">Weight</span><span class="font-medium" id="disp-weight">—</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">BMI</span><span class="font-medium" id="disp-bmi">—</span></div>
+                        </div>
+                    </div>
+                    <!-- Medications Summary -->
+                    <div class="glass-dark rounded-2xl p-6 border border-white/5 hover-float animate-fade-up delay-300">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                            </div>
+                            <h3 class="text-gray-300 font-semibold">Medications</h3>
+                        </div>
+                        <p class="text-sm text-gray-400 leading-relaxed" id="disp-meds">No medications on file. Update your profile to add them.</p>
+                    </div>
+                </div>
+
+                <!-- Overview bottom grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Upcoming Appointments widget -->
+                    <div class="glass border border-white/5 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                        <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                            <h2 class="text-lg font-semibold">Upcoming Appointments</h2>
+                            <button onclick="switchView('appointments')" class="text-sm text-primary hover:underline">View All →</button>
+                        </div>
+                        <div class="p-4 flex-1 space-y-3" id="overviewApptList">
+                            <p class="text-center text-sm text-gray-500 py-4">Loading...</p>
+                        </div>
+                    </div>
+                    <!-- Quick Actions -->
+                    <div class="glass border border-white/5 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                        <div class="p-6 border-b border-white/5 bg-white/[0.02]">
+                            <h2 class="text-lg font-semibold">Quick Actions</h2>
+                        </div>
+                        <div class="p-6 flex-1 grid grid-cols-2 gap-4">
+                            <button onclick="switchView('schedule')" class="flex flex-col items-center gap-3 p-4 glass-dark border border-white/5 rounded-xl hover:border-primary/30 hover:bg-primary/5 transition group">
+                                <div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary group-hover:bg-primary/20 transition">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-300">Book Appointment</span>
+                            </button>
+                            <button onclick="switchView('appointments')" class="flex flex-col items-center gap-3 p-4 glass-dark border border-white/5 rounded-xl hover:border-emerald-500/30 hover:bg-emerald-500/5 transition group">
+                                <div class="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 transition">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-300">My Appointments</span>
+                            </button>
+                            <button onclick="openProfileModal()" class="flex flex-col items-center gap-3 p-4 glass-dark border border-white/5 rounded-xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition group">
+                                <div class="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500/20 transition">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-300">Edit Profile</span>
+                            </button>
+                            <button onclick="logout()" class="flex flex-col items-center gap-3 p-4 glass-dark border border-white/5 rounded-xl hover:border-rose-500/30 hover:bg-rose-500/5 transition group">
+                                <div class="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-400 group-hover:bg-rose-500/20 transition">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-300">Logout</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: Book Appointment -->
+            <div id="view-schedule" class="view-section">
+                <div class="max-w-2xl">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold">Book a Consultation</h2>
+                        <p class="text-gray-400 mt-1 text-sm">Choose your doctor, select a time, and describe your symptoms.</p>
+                    </div>
+                    <div class="glass border border-white/5 rounded-2xl p-8">
+                        <div id="bookMsg" class="hidden text-sm p-4 rounded-xl font-medium border mb-6"></div>
+                        <form id="bookForm" class="space-y-5">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Select Doctor</label>
+                                <select id="doctorSelect" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition" required>
+                                    <option value="">Loading doctors...</option>
+                                </select>
+                                <div id="doctorInfo" class="hidden mt-2 p-3 glass-dark border border-white/5 rounded-lg text-sm text-gray-400"></div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Preferred Date & Time</label>
+                                <input type="datetime-local" id="apptTime" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Reason for Visit</label>
+                                <textarea id="apptReason" rows="4" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition resize-none" placeholder="Describe your symptoms or reason for visit..." required></textarea>
+                            </div>
+                            <button type="submit" id="bookBtn" class="w-full py-3.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-[0.98] transition font-semibold flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                Confirm Booking
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: My Appointments -->
+            <div id="view-appointments" class="view-section">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold">My Appointments</h2>
+                        <p class="text-gray-400 mt-1 text-sm">Track all your consultations and their statuses.</p>
+                    </div>
+                    <button onclick="loadAppointments()" class="px-4 py-2 glass border border-white/10 rounded-xl text-sm text-gray-300 hover:text-white hover:border-white/20 transition flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Refresh
+                    </button>
+                </div>
+                <div id="appointmentsList" class="space-y-4">
+                    <p class="text-gray-400 text-sm">Loading appointments...</p>
+                </div>
+            </div>
+
+            <!-- VIEW: Health Assistant Chatbot -->
+            <div id="view-chat" class="view-section">
+                <div class="max-w-2xl mx-auto">
+                    <div class="mb-4 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-2xl font-bold flex items-center gap-2">
+                                <span class="w-3 h-3 bg-emerald-400 rounded-full animate-pulse inline-block"></span>
+                                MediHelp Assistant
+                            </h2>
+                            <p class="text-gray-400 text-sm mt-1">Available 24/7 · Describes common health issues · Escalates to your doctor when needed.</p>
+                        </div>
+                        <button onclick="clearChat()" class="text-xs text-gray-500 hover:text-gray-300 transition flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            Clear chat
+                        </button>
+                    </div>
+
+                    <!-- Chat window -->
+                    <div class="glass border border-white/5 rounded-2xl overflow-hidden flex flex-col" style="height:520px">
+                        <div id="chatMessages" class="flex-1 overflow-y-auto p-5 space-y-4">
+                            <!-- Welcome message injected by JS -->
+                        </div>
+                        <!-- Suggestion chips -->
+                        <div id="chipArea" class="px-4 pb-2 flex flex-wrap gap-2"></div>
+                        <!-- Ticket raised banner -->
+                        <div id="ticketBanner" class="hidden mx-4 mb-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400 flex items-center gap-2">
+                            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                            <span id="ticketText">Ticket raised! Your doctor has been notified.</span>
+                        </div>
+                        <!-- Input area -->
+                        <div class="p-4 border-t border-white/5 bg-white/[0.02] flex gap-2">
+                            <input id="chatInput" type="text" placeholder="Type your symptoms or question..." autocomplete="off"
+                                class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition placeholder-gray-600"
+                                onkeydown="if(event.key==='Enter') sendMessage()">
+                            <button onclick="sendMessage()" class="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl transition text-sm font-medium flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-600 mt-3 text-center">⚠ This assistant provides general guidance only. Always consult a doctor for serious symptoms.</p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Profile Edit Modal -->
+    <div id="profileModal" class="hidden fixed inset-0 bg-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onclick="handleModalBgClick(event)">
+        <div class="glass border border-white/10 rounded-2xl w-full max-w-lg p-0 overflow-hidden">
+            <div class="p-6 border-b border-white/5 flex items-center justify-between">
+                <h2 class="text-xl font-bold">Edit Profile</h2>
+                <button onclick="closeProfileModal()" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form id="profileForm" class="p-6 space-y-4">
+                <div id="profileMsg" class="hidden text-sm p-3 rounded-lg font-medium border"></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Age</label>
+                        <input type="number" id="prof-age" placeholder="e.g. 25" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white outline-none focus:border-primary/50 transition text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Blood Type</label>
+                        <select id="prof-blood" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white outline-none focus:border-primary/50 transition text-sm">
+                            <option value="">Select...</option>
+                            <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+                            <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Height (cm)</label>
+                        <input type="number" id="prof-height" placeholder="e.g. 170" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white outline-none focus:border-primary/50 transition text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Weight (kg)</label>
+                        <input type="number" id="prof-weight" placeholder="e.g. 65" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white outline-none focus:border-primary/50 transition text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1.5">Current Medications</label>
+                    <textarea id="prof-meds" rows="2" placeholder="e.g. Paracetamol 500mg daily..." class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white outline-none focus:border-primary/50 transition text-sm resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1.5">Home Address</label>
+                    <textarea id="prof-address" rows="2" placeholder="Street, City, State..." class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white outline-none focus:border-primary/50 transition text-sm resize-none"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeProfileModal()" class="px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition text-sm font-medium">Cancel</button>
+                    <button type="submit" id="saveProfileBtn" class="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl transition text-sm font-semibold">Save Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    // ── State ──────────────────────────────────────────────
+    let userProfile = null;
+
+    // ── Init ───────────────────────────────────────────────
+    (function init() {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) { window.location.href = '/patient-login.html'; return; }
+        const user = JSON.parse(userStr);
+        if (user.role !== 'patient') { window.location.href = '/patient-login.html'; return; }
+        userProfile = user;
+
+        // Header
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('avatarInitial').textContent = user.name.charAt(0).toUpperCase();
+        document.getElementById('dropName').textContent = user.name;
+        document.getElementById('dropEmail').textContent = user.identifier;
+        document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        loadProfileFromServer();
+        loadOverviewAppointments();
+    })();
+
+    // ── Profile ─────────────────────────────────────────────
+    async function loadProfileFromServer() {
+        try {
+            const res = await fetch('/api/patients');
+            const pats = await res.json();
+            const me = pats.find(p => p.id === userProfile.id);
+            if (me && me.profile) {
+                userProfile.profile = me.profile;
+                updateDashboardCards();
+            }
+        } catch(e) {}
+    }
+
+    function updateDashboardCards() {
+        const p = userProfile.profile || {};
+        document.getElementById('disp-age').textContent = p.age ? p.age + ' yrs' : '—';
+        document.getElementById('disp-blood').textContent = p.blood_type || '—';
+        document.getElementById('disp-address').textContent = p.address || '—';
+        document.getElementById('disp-height').textContent = p.height ? p.height + ' cm' : '—';
+        document.getElementById('disp-weight').textContent = p.weight ? p.weight + ' kg' : '—';
+        document.getElementById('disp-meds').textContent = p.medications || 'No medications on file. Update your profile to add them.';
+        // BMI
+        if (p.height && p.weight) {
+            const h = parseFloat(p.height) / 100;
+            const bmi = (parseFloat(p.weight) / (h * h)).toFixed(1);
+            document.getElementById('disp-bmi').textContent = bmi;
+        } else {
+            document.getElementById('disp-bmi').textContent = '—';
+        }
+    }
+
+    // ── Dropdown & Modal ────────────────────────────────────
+    function toggleDropdown() {
+        document.getElementById('profileDropdown').classList.toggle('hidden');
+        document.getElementById('notifDropdown').classList.add('hidden');
+    }
+
+    function toggleNotifications() {
+        document.getElementById('notifDropdown').classList.toggle('hidden');
+        document.getElementById('profileDropdown').classList.add('hidden');
+    }
+
+    function openProfileModal() {
+        document.getElementById('profileDropdown').classList.add('hidden');
+        document.getElementById('profileModal').classList.remove('hidden');
+        const p = userProfile.profile || {};
+        document.getElementById('prof-age').value = p.age || '';
+        document.getElementById('prof-blood').value = p.blood_type || '';
+        document.getElementById('prof-height').value = p.height || '';
+        document.getElementById('prof-weight').value = p.weight || '';
+        document.getElementById('prof-meds').value = p.medications || '';
+        document.getElementById('prof-address').value = p.address || '';
+        document.getElementById('profileMsg').classList.add('hidden');
+    }
+
+    function closeProfileModal() {
+        document.getElementById('profileModal').classList.add('hidden');
+    }
+
+    function handleModalBgClick(e) {
+        if (e.target === document.getElementById('profileModal')) closeProfileModal();
+    }
+
+    // Close dropdowns on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#avatarBtn') && !e.target.closest('#profileDropdown')) {
+            document.getElementById('profileDropdown').classList.add('hidden');
+        }
+        if (!e.target.closest('.relative')) {
+            document.getElementById('notifDropdown').classList.add('hidden');
+        }
+    });
+
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('saveProfileBtn');
+        btn.textContent = 'Saving...'; btn.disabled = true;
+        const profileData = {
+            age: document.getElementById('prof-age').value,
+            blood_type: document.getElementById('prof-blood').value,
+            height: document.getElementById('prof-height').value,
+            weight: document.getElementById('prof-weight').value,
+            medications: document.getElementById('prof-meds').value,
+            address: document.getElementById('prof-address').value
+        };
+        try {
+            const res = await fetch('/api/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: userProfile.id, role: 'patient', profileData })
+            });
+            const data = await res.json();
+            const msgEl = document.getElementById('profileMsg');
+            if (data.success) {
+                userProfile.profile = profileData;
+                updateDashboardCards();
+                msgEl.className = 'text-sm p-3 rounded-lg font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                msgEl.textContent = '✓ Profile saved successfully!';
+                msgEl.classList.remove('hidden');
+                setTimeout(closeProfileModal, 1200);
+            } else {
+                msgEl.className = 'text-sm p-3 rounded-lg font-medium border bg-rose-500/10 text-rose-400 border-rose-500/20';
+                msgEl.textContent = data.error || 'Failed to save.';
+                msgEl.classList.remove('hidden');
+            }
+        } catch(err) {
+            console.error(err);
+        }
+        btn.textContent = 'Save Profile'; btn.disabled = false;
+    });
+
+    // ── Logout ──────────────────────────────────────────────
+    function logout() {
+        localStorage.removeItem('user');
+        window.location.href = '/';
+    }
+
+    // ── Navigation ──────────────────────────────────────────
+    function switchView(viewName) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.getElementById('view-' + viewName).classList.add('active');
+
+        document.querySelectorAll('.nav-btn').forEach(el => {
+            el.className = 'nav-btn flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 px-4 py-3 rounded-xl transition-all';
+        });
+        const activeNav = document.getElementById('nav-' + viewName);
+        if (activeNav) {
+            activeNav.className = 'nav-btn active-nav flex items-center gap-3 bg-primary/10 text-primary px-4 py-3 rounded-xl border border-primary/20 transition-all shadow-[0_0_15px_rgba(14,165,233,0.1)]';
+        }
+
+        if (viewName === 'schedule') loadDoctors();
+        if (viewName === 'appointments') loadAppointments();
+    }
+
+    // ── Doctors ─────────────────────────────────────────────
+    async function loadDoctors() {
+        try {
+            const res = await fetch('/api/doctors');
+            const doctors = await res.json();
+            const sel = document.getElementById('doctorSelect');
+            if (doctors.length === 0) {
+                sel.innerHTML = '<option value="">No doctors registered yet</option>';
+            } else {
+                sel.innerHTML = '<option value="">— Choose a Doctor —</option>' + doctors.map(d => {
+                    const spec = d.profile && d.profile.specialty ? ` (${d.profile.specialty})` : '';
+                    return `<option value="${d.id}" data-phone="${d.profile && d.profile.phone ? d.profile.phone : ''}" data-spec="${spec}">Dr. ${d.name}${spec}</option>`;
+                }).join('');
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    document.getElementById('doctorSelect').addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        const spec = opt.getAttribute('data-spec');
+        const phone = opt.getAttribute('data-phone');
+        const info = document.getElementById('doctorInfo');
+        if (this.value && (spec || phone)) {
+            let txt = '';
+            if (spec) txt += `Specialty: ${spec.replace(/[()]/g, '')}  `;
+            if (phone) txt += `📞 ${phone}`;
+            info.textContent = txt;
+            info.classList.remove('hidden');
+        } else {
+            info.classList.add('hidden');
+        }
+    });
+
+    // ── Book Appointment ────────────────────────────────────
+    document.getElementById('bookForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('bookBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Booking...';
+
+        const doctorId = document.getElementById('doctorSelect').value;
+        const time = document.getElementById('apptTime').value;
+        const reason = document.getElementById('apptReason').value;
+        const msg = document.getElementById('bookMsg');
+
+        if (!doctorId) {
+            msg.className = 'text-sm p-4 rounded-xl font-medium border bg-amber-500/10 text-amber-400 border-amber-500/20 mb-6';
+            msg.textContent = '⚠ Please select a doctor first.';
+            msg.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Confirm Booking';
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/appointments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ patientId: userProfile.id, doctorId, time, reason })
+            });
+            const data = await res.json();
+            if (data.success) {
+                msg.className = 'text-sm p-4 rounded-xl font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 mb-6';
+                msg.textContent = '✓ Appointment booked! The doctor will review and confirm shortly.';
+                msg.classList.remove('hidden');
+                e.target.reset();
+                document.getElementById('doctorInfo').classList.add('hidden');
+                loadOverviewAppointments();
+            } else {
+                msg.className = 'text-sm p-4 rounded-xl font-medium border bg-rose-500/10 text-rose-400 border-rose-500/20 mb-6';
+                msg.textContent = '✕ ' + (data.error || 'Booking failed. Please try again.');
+                msg.classList.remove('hidden');
+            }
+        } catch (err) {
+            msg.className = 'text-sm p-4 rounded-xl font-medium border bg-rose-500/10 text-rose-400 border-rose-500/20 mb-6';
+            msg.textContent = '✕ Server error. Is the server running?';
+            msg.classList.remove('hidden');
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Confirm Booking';
+    });
+
+    // ── Appointments ─────────────────────────────────────────
+    function statusBadge(status) {
+        const map = {
+            pending:  'bg-amber-500/10 text-amber-400 border-amber-500/20',
+            approved: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+            rejected: 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+        };
+        const labels = { pending: 'Pending Approval', approved: '✓ Approved', rejected: '✕ Declined' };
+        const cls = map[status] || 'bg-white/5 text-gray-300 border-white/20';
+        const label = labels[status] || status;
+        return `<span class="px-3 py-1 rounded-lg border text-xs font-semibold uppercase tracking-wider ${cls}">${label}</span>`;
+    }
+
+    async function loadOverviewAppointments() {
+        try {
+            const res = await fetch(`/api/appointments?userId=${userProfile.id}&role=patient`);
+            const appts = await res.json();
+            const list = document.getElementById('overviewApptList');
+            const upcoming = appts.filter(a => a.status !== 'rejected').slice(0, 3);
+            if (upcoming.length === 0) {
+                list.innerHTML = '<p class="text-center text-sm text-gray-500 py-4">No upcoming appointments. <button onclick="switchView(\'schedule\')" class="text-primary hover:underline">Book one now →</button></p>';
+                return;
+            }
+            list.innerHTML = upcoming.map(a => `
+                <div class="flex items-center justify-between p-3 glass-dark border border-white/5 rounded-xl">
+                    <div>
+                        <p class="font-medium text-sm">Dr. ${a.doctorName}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">${new Date(a.time).toLocaleString()}</p>
+                    </div>
+                    ${statusBadge(a.status)}
+                </div>
+            `).join('');
+            // Notifications
+            const pending = appts.filter(a => a.status === 'approved').length;
+            if (pending > 0) {
+                document.getElementById('notifBadge').classList.remove('hidden');
+                document.getElementById('notifList').innerHTML = appts.filter(a => a.status === 'approved').map(a =>
+                    `<div class="p-3 text-left border-b border-white/5 text-xs"><span class="text-emerald-400 font-medium">Approved:</span> Dr. ${a.doctorName} on ${new Date(a.time).toLocaleDateString()}</div>`
+                ).join('');
+            }
+        } catch(e) {}
+    }
+
+    async function loadAppointments() {
+        const list = document.getElementById('appointmentsList');
+        list.innerHTML = '<p class="text-gray-400 text-sm">Loading...</p>';
+        try {
+            const res = await fetch(`/api/appointments?userId=${userProfile.id}&role=patient`);
+            const appts = await res.json();
+            if (appts.length === 0) {
+                list.innerHTML = `<div class="glass border border-white/5 rounded-xl p-8 text-center">
+                    <p class="text-gray-400 mb-3">You haven't booked any appointments yet.</p>
+                    <button onclick="switchView('schedule')" class="px-4 py-2 bg-primary/20 text-primary rounded-lg text-sm hover:bg-primary/30 transition">Book Your First Appointment →</button>
+                </div>`;
+                return;
+            }
+            list.innerHTML = appts.map(a => `
+                <div class="glass border border-white/5 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">${a.doctorName.charAt(0)}</div>
+                            <div>
+                                <h4 class="font-bold text-white">Dr. ${a.doctorName}</h4>
+                                <p class="text-xs text-gray-500">${new Date(a.time).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })}</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-1"><span class="text-gray-500">Reason:</span> ${a.reason}</p>
+                    </div>
+                    <div class="flex-shrink-0">${statusBadge(a.status)}</div>
+                </div>
+            `).join('');
+        } catch(e) {
+            list.innerHTML = '<p class="text-rose-400 text-sm">Failed to load appointments. Is the server running?</p>';
+        }
+    }
+
+    // ── CHATBOT ENGINE ──────────────────────────────────────────────────────
+    const KB = [
+        { keys: ['headache','head ache','head pain','migraine','head hurts'],
+          meds: ['Paracetamol 500mg (every 6h)', 'Aspirin 300mg (avoid if under 16)'],
+          remedies: ['Rest in a dark, quiet room', 'Cold/warm compress on forehead', 'Drink plenty of water', 'Gentle scalp massage'],
+          label: 'Headache / Migraine' },
+        { keys: ['cold','runny nose','sneezing','nasal congestion','blocked nose','flu'],
+          meds: ['Cetirizine 10mg once daily', 'Paracetamol 500mg for fever/aches'],
+          remedies: ['Steam inhalation 2-3x daily', 'Ginger + honey + lemon tea', 'Stay warm and rest', 'Saline nasal rinse'],
+          label: 'Cold / Flu' },
+        { keys: ['cough','sore throat','throat pain','throat irritation','dry cough','wet cough'],
+          meds: ['Dextromethorphan syrup (dry cough)', 'Ambroxol syrup (wet cough)', 'Throat lozenges'],
+          remedies: ['Honey in warm water twice daily', 'Salt water gargle', 'Steam inhalation', 'Turmeric milk at night'],
+          label: 'Cough / Sore Throat' },
+        { keys: ['fever','high temperature','chills','body hot'],
+          meds: ['Paracetamol 500-1000mg every 6h (max 4g/day)', 'Ibuprofen 400mg with food'],
+          remedies: ['Cool compress on forehead', 'Drink 2-3 litres of fluids daily', 'Rest completely', 'Light cotton clothing'],
+          label: 'Fever' },
+        { keys: ['diarrhea','diarrhoea','loose motion','loose stool','watery stool'],
+          meds: ['ORS (oral rehydration salts) — essential', 'Loperamide 2mg'],
+          remedies: ['BRAT diet: Banana, Rice, Apple, Toast', 'Avoid dairy and spicy food', 'Coconut water for electrolytes'],
+          label: 'Diarrhea / Loose Motions' },
+        { keys: ['stomach ache','stomach pain','abdominal pain','acidity','heartburn','gas','bloating','indigestion'],
+          meds: ['Antacid (Gelusil / Digene) after meals', 'Omeprazole 20mg before breakfast'],
+          remedies: ['Jeera water (boil 1 tsp cumin)', 'Fennel seeds after meals', 'Avoid spicy/fried food', 'Eat smaller meals'],
+          label: 'Stomach Ache / Acidity' },
+        { keys: ['nausea','vomiting','throw up','vomit','feel sick'],
+          meds: ['Domperidone 10mg before meals', 'ORS to prevent dehydration'],
+          remedies: ['Small sips of water / coconut water', 'Ginger tea', 'Avoid strong smells', 'Rest carefully'],
+          label: 'Nausea / Vomiting' },
+        { keys: ['back pain','lower back','backache','spine pain'],
+          meds: ['Ibuprofen 400mg with food', 'Muscle relaxant (requires prescription)'],
+          remedies: ['Hot compress on area', 'Gentle stretching 2x daily', 'Avoid long sitting', 'Sleep on firm mattress'],
+          label: 'Back Pain' },
+        { keys: ['body pain','muscle pain','body ache','joint pain'],
+          meds: ['Paracetamol 500mg every 6h', 'Ibuprofen 400mg with food'],
+          remedies: ['Warm compress', 'Epsom salt warm bath', 'Gentle stretching', 'Rest and hydration'],
+          label: 'Body / Muscle Pain' },
+        { keys: ['constipation','no bowel','hard stool','difficulty passing stool'],
+          meds: ['Isabgol (Psyllium husk) 1 tbsp in water at night', 'Lactulose syrup'],
+          remedies: ['Drink 8-10 glasses of water daily', 'High-fibre diet', 'Walk 30 min daily', 'Warm lemon water in morning'],
+          label: 'Constipation' },
+        { keys: ['skin rash','rash','itching','itchy skin','hives','allergy'],
+          meds: ['Cetirizine 10mg (antihistamine)', 'Calamine lotion'],
+          remedies: ['Aloe vera gel', 'Avoid scratching', 'Cold compress on area', 'Loose cotton clothing'],
+          label: 'Skin Rash / Itching' },
+        { keys: ['acne','pimple','pimples','breakout'],
+          meds: ['Benzoyl peroxide 2.5% cream (at night)', 'Salicylic acid face wash'],
+          remedies: ['Wash face twice daily', 'Diluted tea tree oil on spots', 'Avoid touching face', 'Reduce sugar intake'],
+          label: 'Acne / Pimples' },
+        { keys: ['eye pain','eye irritation','red eye','watery eye','eye strain'],
+          meds: ['Lubricating eye drops (e.g. Systane)', 'Antihistamine eye drops'],
+          remedies: ['Cold compress 10 min', '20-20-20 rule (every 20min look 20ft away 20sec)', 'Reduce screen brightness', 'Avoid rubbing eyes'],
+          label: 'Eye Irritation / Strain' },
+        { keys: ['insomnia','cant sleep','trouble sleeping','sleepless'],
+          meds: ['Melatonin 0.5-5mg (30 min before bed, short-term)'],
+          remedies: ['Fixed sleep schedule', 'Avoid screens 1hr before bed', 'Warm milk with nutmeg', 'Deep breathing / meditation'],
+          label: 'Insomnia / Sleep Issues' },
+        { keys: ['fatigue','tired','exhausted','weakness','low energy'],
+          meds: ['Vitamin B12 supplement', 'Iron + Folic acid (if anaemic)'],
+          remedies: ['7-9 hours quality sleep', 'Stay hydrated (2-3L water/day)', 'Balanced diet with greens', 'Short 20-min power nap'],
+          label: 'Fatigue / Weakness' },
+        { keys: ['anxiety','stress','panic','nervous','worry'],
+          meds: ['Avoid self-medicating — see a doctor', 'Ashwagandha (OTC, mild adaptogen)'],
+          remedies: ['Box breathing: inhale 4s, hold 4s, exhale 4s', 'Chamomile tea', '10-min daily meditation', 'Regular exercise'],
+          label: 'Anxiety / Stress' },
+        { keys: ['toothache','tooth pain','dental pain'],
+          meds: ['Ibuprofen 400mg', 'Clove oil on tooth'],
+          remedies: ['Salt water rinse several times daily', 'Cold compress on cheek', 'Avoid hot/cold/sweet foods', 'See a dentist ASAP'],
+          label: 'Toothache' },
+        { keys: ['uti','urinary','burning urination','frequent urination','urine infection'],
+          meds: ['Antibiotics required — see a doctor'],
+          remedies: ['Drink 2-3L water daily', 'Unsweetened cranberry juice', 'Avoid holding urine', 'Loose cotton underwear'],
+          label: 'Urinary Issues (UTI)' },
+    ];
+    const EMERGENCY_WORDS = ['chest pain','heart attack','stroke','cant breathe','unconscious','seizure','severe bleeding'];
+    let chatHistory = [];
+
+    function initChat() {
+        chatHistory = [];
+        appendBotMessage('Hello, ' + userProfile.name + '! I am the MediHelp Health Assistant.\n\nI can help with common health issues - headaches, cold, fever, stomach aches, and more. I will suggest medicines and home remedies.\n\nIf something needs a doctor, I will raise a ticket and notify them by email.\n\nHow can I help you today?');
+        showChips(['Headache', 'Cold or Flu', 'Fever', 'Stomach ache', 'Cough', 'Diarrhea', 'Fatigue', 'Something else']);
+    }
+
+    function clearChat() {
+        document.getElementById('chatMessages').innerHTML = '';
+        document.getElementById('chipArea').innerHTML = '';
+        document.getElementById('ticketBanner').classList.add('hidden');
+        chatHistory = [];
+        initChat();
+    }
+
+    function appendBotMessage(text) {
+        const div = document.createElement('div');
+        div.className = 'flex gap-3 items-start';
+        div.innerHTML = '<div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5 text-xs font-bold">AI</div><div class="flex-1 bg-white/5 border border-white/5 rounded-2xl rounded-tl-none px-4 py-3 text-sm text-gray-200 whitespace-pre-line leading-relaxed" style="max-width:85%">' + text + '</div>';
+        document.getElementById('chatMessages').appendChild(div);
+        document.getElementById('chatMessages').scrollTop = 999999;
+        chatHistory.push({ role: 'bot', text });
+    }
+
+    function appendUserMessage(text) {
+        const div = document.createElement('div');
+        div.className = 'flex gap-3 items-start justify-end';
+        div.innerHTML = '<div class="flex-1 bg-primary/20 border border-primary/20 rounded-2xl rounded-tr-none px-4 py-3 text-sm text-white" style="max-width:80%">' + text + '</div><div class="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold shrink-0 mt-0.5">' + userProfile.name.charAt(0).toUpperCase() + '</div>';
+        document.getElementById('chatMessages').appendChild(div);
+        document.getElementById('chatMessages').scrollTop = 999999;
+        chatHistory.push({ role: 'user', text });
+    }
+
+    function showChips(options) {
+        document.getElementById('chipArea').innerHTML = options.map(function(o) {
+            return '<button onclick="chipSelect(\'' + o + '\')" class="px-3 py-1.5 text-xs bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/10 hover:border-primary/30 rounded-full transition">' + o + '</button>';
+        }).join('');
+    }
+
+    function chipSelect(val) {
+        document.getElementById('chipArea').innerHTML = '';
+        appendUserMessage(val);
+        setTimeout(function(){ processInput(val); }, 350);
+    }
+
+    function sendMessage() {
+        var input = document.getElementById('chatInput');
+        var text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        document.getElementById('chipArea').innerHTML = '';
+        appendUserMessage(text);
+        setTimeout(function(){ processInput(text); }, 350);
+    }
+
+    function processInput(text) {
+        var lower = text.toLowerCase();
+        if (EMERGENCY_WORDS.some(function(e){ return lower.indexOf(e) !== -1; })) {
+            appendBotMessage('EMERGENCY - Please call 112 immediately and go to the nearest hospital ER!\n\nDo NOT wait for an online response. I am also raising an urgent ticket to your doctor right now.');
+            raiseTicket('URGENT EMERGENCY: Patient reported "' + text + '". Immediate medical attention required.');
+            return;
+        }
+        var match = KB.find(function(entry){ return entry.keys.some(function(k){ return lower.indexOf(k) !== -1; }); });
+        if (match) {
+            var resp = 'I understand you have symptoms of ' + match.label + '.\n\nSuggested Medicines:\n' + match.meds.map(function(m){ return '- ' + m; }).join('\n') + '\n\nHome Remedies:\n' + match.remedies.map(function(r){ return '- ' + r; }).join('\n') + '\n\nThese are general suggestions only. If symptoms are severe or persist more than 2-3 days, please consult your doctor.\n\nWould you like me to raise a ticket to your doctor?';
+            appendBotMessage(resp);
+            showChips(['Yes, notify my doctor', 'No, that helps', 'I have another symptom']);
+        } else if (lower.indexOf('yes') !== -1 || lower.indexOf('notify') !== -1 || lower.indexOf('raise') !== -1) {
+            var context = chatHistory.filter(function(m){ return m.role === 'user'; }).slice(-3).map(function(m){ return m.text; }).join('; ');
+            appendBotMessage('Raising a ticket to your doctor now...');
+            raiseTicket('Patient reported: "' + context + '". Doctor review requested.');
+        } else if (lower.indexOf('no') !== -1 || lower.indexOf('thank') !== -1 || lower.indexOf('help') !== -1) {
+            appendBotMessage('Alright! Take care. If symptoms worsen, do not hesitate to ask or book an appointment.');
+            showChips(['I have another symptom', 'Book an appointment', 'Done']);
+        } else if (lower.indexOf('another') !== -1 || lower.indexOf('other') !== -1 || lower.indexOf('else') !== -1) {
+            appendBotMessage('Of course! Tell me your next symptom and I will help right away.');
+        } else if (lower.indexOf('book') !== -1 || lower.indexOf('appointment') !== -1) {
+            appendBotMessage('Taking you to the booking page!');
+            setTimeout(function(){ switchView('schedule'); }, 800);
+        } else if (lower.indexOf('done') !== -1 || lower.indexOf('bye') !== -1 || lower.indexOf('ok') !== -1) {
+            appendBotMessage('Feel better soon! Come back anytime - I am available 24/7!');
+            showChips(['Another symptom', 'Book appointment']);
+        } else {
+            appendBotMessage('I am not sure about "' + text + '" - that is outside my current knowledge.\n\nI will raise a ticket to your doctor so they can personally review your query. They will be notified by email.');
+            raiseTicket('Patient query: "' + text + '" - outside health assistant knowledge. Doctor review requested.');
+        }
+    }
+
+    async function raiseTicket(summary) {
+        try {
+            var apptRes = await fetch('/api/appointments?userId=' + userProfile.id + '&role=patient');
+            var appts = await apptRes.json();
+            var linked = appts.find(function(a){ return a.status !== 'rejected'; });
+            var doctorId = linked ? linked.doctorId : null;
+            var res = await fetch('/api/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ patientId: userProfile.id, doctorId: doctorId, summary: summary, chatLog: chatHistory.slice(-20) })
+            });
+            var data = await res.json();
+            if (data.success) {
+                var banner = document.getElementById('ticketBanner');
+                document.getElementById('ticketText').textContent = doctorId
+                    ? 'Ticket raised! Your doctor has been notified by email and will respond soon.'
+                    : 'Ticket raised! Book an appointment to link it to a doctor who can review it.';
+                banner.classList.remove('hidden');
+                setTimeout(function(){ banner.classList.add('hidden'); }, 9000);
+            }
+        } catch(e) { console.error(e); }
+    }
+    </script>
+</body>
+</html>

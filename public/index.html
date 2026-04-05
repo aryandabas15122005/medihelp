@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediHelp | Easing your medical requirements</title>
+    <meta name="description" content="MediHelp — Your trusted medical portal for patients and doctors. Book appointments, manage records, and get health guidance 24/7.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0ea5e9',
+                        secondary: '#6366f1',
+                        accent: '#f43f5e',
+                        dark: '#0f172a',
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-dark text-white min-h-screen relative overflow-hidden flex flex-col">
+
+    <!-- Background glows -->
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+        <div class="absolute top-[-10%] right-[-5%] w-[36rem] h-[36rem] bg-primary rounded-full mix-blend-multiply filter blur-[140px] opacity-30 animate-pulse"></div>
+        <div class="absolute bottom-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-secondary rounded-full mix-blend-multiply filter blur-[140px] opacity-25"></div>
+        <div class="absolute top-[40%] left-[40%] w-64 h-64 bg-accent rounded-full mix-blend-multiply filter blur-[120px] opacity-10"></div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="w-full py-5 px-8 flex justify-between items-center z-10 glass-dark border-b border-white/5">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-lg shadow-lg shadow-primary/20">
+                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+            </div>
+            <div>
+                <span class="text-xl font-bold tracking-tight">MediHelp</span>
+                <span class="text-xs text-gray-500 block leading-none">Easing your medical requirements</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="/patient-login.html" class="text-sm font-medium text-gray-300 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5">Patient Login</a>
+            <a href="/doctor-login.html" class="text-sm font-medium bg-secondary/20 text-secondary hover:bg-secondary/30 transition px-4 py-2 rounded-lg border border-secondary/30">Doctor Login</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <main class="flex-grow flex flex-col items-center justify-center px-4 z-10 relative py-16">
+        <div class="text-center max-w-4xl mb-16 animate-fade-up">
+            <!-- Badge -->
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-8">
+                <span class="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+                AI-assisted health guidance available 24/7
+            </div>
+
+            <h1 class="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight leading-tight">
+                Your Health,<br>
+                <span class="bg-gradient-to-r from-primary via-indigo-400 to-accent text-transparent bg-clip-text">Simplified.</span>
+            </h1>
+            <p class="text-lg md:text-xl text-gray-400 font-light mb-4 max-w-2xl mx-auto">
+                MediHelp connects patients and doctors seamlessly — book consultations, get instant health guidance, and manage your medical records effortlessly.
+            </p>
+            <p class="text-sm text-gray-600 italic mb-10">Easing your medical requirements</p>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="/patient-login.html" class="px-8 py-4 bg-primary text-white font-semibold rounded-2xl shadow-xl shadow-primary/25 hover:bg-primary/90 hover:shadow-primary/40 transition-all active:scale-95">
+                    I'm a Patient →
+                </a>
+                <a href="/doctor-login.html" class="px-8 py-4 bg-secondary/20 text-secondary font-semibold rounded-2xl border border-secondary/30 hover:bg-secondary/30 transition-all active:scale-95">
+                    I'm a Doctor →
+                </a>
+            </div>
+        </div>
+
+        <!-- Features strip -->
+        <div id="roles" class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl relative z-10 mb-8">
+            <div class="glass-dark rounded-2xl p-6 border border-white/5 hover-float animate-fade-up delay-100">
+                <div class="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center mb-4">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <h3 class="font-bold text-lg mb-2">Easy Appointments</h3>
+                <p class="text-sm text-gray-400">Book consultations with your preferred doctor in seconds. Get real-time status updates.</p>
+            </div>
+            <div class="glass-dark rounded-2xl p-6 border border-white/5 hover-float animate-fade-up delay-200">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center mb-4">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                </div>
+                <h3 class="font-bold text-lg mb-2">24/7 Health Chatbot</h3>
+                <p class="text-sm text-gray-400">Get instant guidance on common ailments. Our chatbot suggests remedies and raises tickets to your doctor when needed.</p>
+            </div>
+            <div class="glass-dark rounded-2xl p-6 border border-white/5 hover-float animate-fade-up delay-300">
+                <div class="w-12 h-12 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center mb-4">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </div>
+                <h3 class="font-bold text-lg mb-2">Doctor Portal</h3>
+                <p class="text-sm text-gray-400">Doctors manage appointments, review patient chat tickets, and maintain detailed patient records — all in one place.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-5 text-center text-gray-600 text-sm z-10 border-t border-white/5 glass-dark relative">
+        <p>&copy; 2026 MediHelp. All rights reserved. &nbsp;|&nbsp; Easing your medical requirements</p>
+    </footer>
+</body>
+</html>
