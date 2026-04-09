@@ -244,11 +244,14 @@ app.post('/api/appointments', async (req, res) => {
 
         const subject = 'Appointment Booked — MediHelp';
         const body = `Hello,\n\nA new consultation has been booked on MediHelp.\n\nPatient: ${patient.name}\nDoctor:  Dr. ${doctor.name}\nDate/Time: ${new Date(time).toLocaleString()}\nReason:  ${reason || 'Not specified'}\n\nStatus: Pending (awaiting doctor approval)\n\nLog in for details.\n\n— MediHelp Medical Portal`;
-        sendEmail(`${patient.identifier},${doctor.identifier}`, subject, body);
+        
+        // Safety: ensure email failure doesn't crash the booking
+        sendEmail(`${patient.identifier},${doctor.identifier}`, subject, body).catch(e => console.error('[Email ERROR]', e.message));
 
         res.json({ success: true, appointment: { ...appointment.toObject(), id: appointment._id.toString() } });
     } catch (e) {
-        res.status(500).json({ error: 'Booking failed' });
+        console.error('[Booking ERROR]', e);
+        res.status(500).json({ error: 'Booking failed. Please check server logs.' });
     }
 });
 
