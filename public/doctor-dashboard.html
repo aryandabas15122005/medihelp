@@ -21,7 +21,7 @@
         select option { background: #1e293b; color: white; }
     </style>
 </head>
-<body class="bg-dark text-white min-h-screen flex font-sans overflow-hidden">
+<body class="bg-dark text-white h-screen flex font-sans overflow-hidden">
 
     <!-- Sidebar -->
     <aside class="w-64 glass-dark border-r border-white/10 flex flex-col justify-between hidden md:flex shrink-0 z-20 relative">
@@ -31,7 +31,7 @@
                 <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-secondary to-indigo-700 flex items-center justify-center font-bold text-lg mr-3">D</div>
                 <span class="font-bold text-xl tracking-wide">MediHelp <span class="text-xs text-secondary ml-1 bg-secondary/10 px-2 py-0.5 rounded-full">Pro</span></span>
             </div>
-            <nav class="p-4 space-y-2 mt-4 relative z-10">
+            <nav class="p-4 space-y-2 mt-4 relative z-10 overflow-y-auto max-h-[calc(100vh-160px)]">
                 <a href="#" onclick="switchView('dashboard'); return false;" id="nav-dashboard" class="nav-btn active-nav flex items-center gap-3 px-4 py-3 rounded-xl transition-all">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     Dashboard
@@ -668,6 +668,11 @@
             }
         } catch(e) {}
     }
+    function logout() {
+        localStorage.removeItem('user');
+        window.location.href = '/doctor-login.html';
+    }
+
     // Run on init
     setTimeout(checkTicketBadge, 1500);
     </script>

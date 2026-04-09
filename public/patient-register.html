@@ -17,7 +17,7 @@
     </script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-dark text-white min-h-screen relative overflow-hidden flex items-center justify-center">
+<body class="bg-dark text-white min-h-screen relative flex items-center justify-center p-6 overflow-y-auto">
     <!-- Background Effects -->
     <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40rem] h-[40rem] bg-primary rounded-full mix-blend-multiply filter blur-[150px] opacity-20"></div>
@@ -59,8 +59,16 @@
                 </div>
             </div>
 
-            <button type="submit" class="w-full py-3.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25 mt-6">
-                Register
+            <div id="otpSection" class="hidden animate-fade-up">
+                <label class="block text-sm font-medium text-emerald-400 mb-1">Verification Code (Sent to Email)</label>
+                <div class="relative">
+                    <input type="text" id="otp" placeholder="6-digit code" maxlength="6" class="w-full bg-emerald-500/5 border border-emerald-500/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all outline-none tracking-widest font-bold">
+                </div>
+                <p class="text-[10px] text-emerald-400/60 mt-2 px-1">Please check your spam folder if you don't see the mail.</p>
+            </div>
+
+            <button type="submit" id="submitBtn" class="w-full py-3.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25 mt-6">
+                Get Verification Code
             </button>
         </form>
 
@@ -70,31 +78,68 @@
     </div>
 
     <script>
+        let isOtpSent = false;
+
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('name').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const otp = document.getElementById('otp').value;
             const errorMsg = document.getElementById('errorMsg');
+            const submitBtn = document.getElementById('submitBtn');
+            const otpSection = document.getElementById('otpSection');
             
+            errorMsg.classList.add('hidden');
+            submitBtn.disabled = true;
+
             try {
-                const res = await fetch('/api/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role: 'patient', name, identifier: email, password })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    window.location.href = '/patient-dashboard.html';
+                if (!isOtpSent) {
+                    // STEP 1: Send OTP
+                    submitBtn.textContent = 'Sending Code...';
+                    const res = await fetch('/api/auth/send-otp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        isOtpSent = true;
+                        otpSection.classList.remove('hidden');
+                        document.getElementById('otp').required = true;
+                        submitBtn.textContent = 'Verify & Register';
+                        submitBtn.classList.replace('bg-primary', 'bg-emerald-600');
+                    } else {
+                        errorMsg.textContent = data.error;
+                        errorMsg.classList.remove('hidden');
+                        submitBtn.textContent = 'Get Verification Code';
+                    }
                 } else {
-                    errorMsg.textContent = data.error;
-                    errorMsg.classList.remove('hidden');
+                    // STEP 2: Verify & Register
+                    submitBtn.textContent = 'Verifying...';
+                    const res = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ role: 'patient', name, identifier: email, password, otp })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        window.location.href = '/patient-dashboard.html';
+                    } else {
+                        errorMsg.textContent = data.error;
+                        errorMsg.classList.remove('hidden');
+                        submitBtn.textContent = 'Verify & Register';
+                    }
                 }
             } catch (err) {
                 errorMsg.textContent = 'Server error. Please try again.';
                 errorMsg.classList.remove('hidden');
+                submitBtn.textContent = isOtpSent ? 'Verify & Register' : 'Get Verification Code';
+            } finally {
+                submitBtn.disabled = false;
             }
         });
     </script>

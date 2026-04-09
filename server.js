@@ -2,26 +2,58 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const nodemailer = require('nodemailer');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'database.json');
 
-if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({ patients: [], doctors: [], appointments: [], prescriptions: [] }));
-}
+// ── MongoDB Connection ────────────────────────────────────
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('✓ Connected to MongoDB Atlas'))
+    .catch(err => console.error('✕ MongoDB Connection Error:', err));
 
-// Ensure old DBs have the new arrays
-const ensureDb = () => {
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    let changed = false;
-    if (!db.appointments) { db.appointments = []; changed = true; }
-    if (!db.prescriptions) { db.prescriptions = []; changed = true; }
-    if (!db.tickets) { db.tickets = []; changed = true; }
-    if (changed) fs.writeFileSync(DB_FILE, JSON.stringify(db));
-};
-ensureDb();
+// ── Schemas ───────────────────────────────────────────────
+const UserSchema = new mongoose.Schema({
+    identifier: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    name: { type: String, required: true },
+    role: { type: String, enum: ['patient', 'doctor'], required: true },
+    profile: { type: Object, default: {} }
+});
+const User = mongoose.model('User', UserSchema);
+
+const AppointmentSchema = new mongoose.Schema({
+    patientId: String,
+    doctorId: String,
+    doctorName: String,
+    patientName: String,
+    time: String,
+    reason: String,
+    status: { type: String, default: 'pending' }
+});
+const Appointment = mongoose.model('Appointment', AppointmentSchema);
+
+const TicketSchema = new mongoose.Schema({
+    patientId: String,
+    doctorId: String,
+    patientName: String,
+    summary: String,
+    chatLog: Array,
+    status: { type: String, default: 'open' },
+    doctorNote: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now }
+});
+const Ticket = mongoose.model('Ticket', TicketSchema);
+
+const OtpSchema = new mongoose.Schema({
+    email: String,
+    otp: String,
+    expiresAt: Date
+});
+const Otp = mongoose.model('Otp', OtpSchema);
+
 
 // ── Email Setup ──────────────────────────────────────────
 const GMAIL_USER = process.env.GMAIL_USER;
@@ -55,187 +87,238 @@ async function sendEmail(to, subject, text) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/api/register', (req, res) => {
-    const { role, identifier, password, name } = req.body;
-    if (!role || !identifier || !password || !name) return res.status(400).json({ error: 'Missing fields' });
-    
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const table = role === 'doctor' ? db.doctors : db.patients;
-    
-    if (table.find(u => u.identifier === identifier)) {
-        return res.status(400).json({ error: 'User already exists' });
+app.post('/api/auth/send-otp', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    try {
+        // Clear old OTPs for this email
+        await Otp.deleteMany({ $or: [{ email }, { expiresAt: { $lt: new Date() } }] });
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+        await Otp.create({ email, otp, expiresAt });
+
+        const subject = `Your MediHelp Verification Code: ${otp}`;
+        const body = `Hello,\n\nYour verification code for MediHelp is: ${otp}\n\nThis code will expire in 15 minutes.\n\nThank you,\nMediHelp Support`;
+        
+        sendEmail(email, subject, body);
+        res.json({ success: true, message: 'OTP sent successfully' });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to send OTP' });
     }
-    
-    const user = { id: Date.now().toString(), identifier, password, name, role, profile: {} };
-    table.push(user);
-    fs.writeFileSync(DB_FILE, JSON.stringify(db));
-    
-    const userSafe = { ...user };
-    delete userSafe.password;
-    res.json({ success: true, user: userSafe });
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/register', async (req, res) => {
+    const { role, identifier, password, name, otp } = req.body;
+    if (!role || !identifier || !password || !name || !otp) return res.status(400).json({ error: 'Missing fields' });
+    
+    try {
+        // Verify OTP
+        const otpRecord = await Otp.findOne({ email: identifier, otp, expiresAt: { $gt: new Date() } });
+        if (!otpRecord) {
+            return res.status(400).json({ error: 'Invalid or expired OTP code' });
+        }
+
+        const existingUser = await User.findOne({ identifier });
+        if (existingUser) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
+        
+        const user = await User.create({ identifier, password, name, role, profile: {} });
+        
+        // Remove used OTP
+        await Otp.deleteMany({ email: identifier });
+        
+        const userSafe = user.toObject();
+        delete userSafe.password;
+        res.json({ success: true, user: userSafe });
+    } catch (e) {
+        res.status(500).json({ error: 'Registration failed' });
+    }
+});
+
+app.post('/api/login', async (req, res) => {
     const { role, identifier, password } = req.body;
     if (!role || !identifier || !password) return res.status(400).json({ error: 'Missing fields' });
     
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const table = role === 'doctor' ? db.doctors : db.patients;
-    
-    const user = table.find(u => u.identifier === identifier && u.password === password);
-    if (!user) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+    try {
+        const user = await User.findOne({ identifier, password, role });
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        
+        const userSafe = user.toObject();
+        delete userSafe.password;
+        // Use MongoDB _id as id for frontend compatibility
+        userSafe.id = userSafe._id.toString(); 
+        res.json({ success: true, user: userSafe });
+    } catch (e) {
+        res.status(500).json({ error: 'Login failed' });
     }
-    
-    const userSafe = { ...user };
-    delete userSafe.password;
-    res.json({ success: true, user: userSafe });
 });
 
-app.get('/api/doctors', (req, res) => {
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const safeDoctors = db.doctors.map(d => ({ id: d.id, name: d.name, identifier: d.identifier, profile: d.profile || {} }));
-    res.json(safeDoctors);
+app.get('/api/doctors', async (req, res) => {
+    try {
+        const doctors = await User.find({ role: 'doctor' }).select('-password');
+        res.json(doctors.map(d => ({ ...d.toObject(), id: d._id.toString() })));
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to load doctors' });
+    }
 });
 
-app.get('/api/patients', (req, res) => {
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const safePatients = db.patients.map(p => ({ id: p.id, name: p.name, identifier: p.identifier, profile: p.profile || {} }));
-    res.json(safePatients);
+app.get('/api/patients', async (req, res) => {
+    try {
+        const patients = await User.find({ role: 'patient' }).select('-password');
+        res.json(patients.map(p => ({ ...p.toObject(), id: p._id.toString() })));
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to load patients' });
+    }
 });
 
-app.put('/api/profile', (req, res) => {
-    const { userId, role, profileData } = req.body;
-    if (!userId || !role || !profileData) return res.status(400).json({ error: 'Missing fields' });
+app.put('/api/profile', async (req, res) => {
+    const { userId, profileData } = req.body;
+    if (!userId || !profileData) return res.status(400).json({ error: 'Missing fields' });
     
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const table = role === 'doctor' ? db.doctors : db.patients;
-    
-    const userIndex = table.findIndex(u => u.id === userId);
-    if (userIndex === -1) return res.status(404).json({ error: 'User not found' });
-    
-    table[userIndex].profile = { ...(table[userIndex].profile || {}), ...profileData };
-    fs.writeFileSync(DB_FILE, JSON.stringify(db));
-    
-    const userSafe = { ...table[userIndex] };
-    delete userSafe.password;
-    res.json({ success: true, user: userSafe });
+    try {
+        const user = await User.findByIdAndUpdate(
+            userId, 
+            { $set: { profile: profileData } }, 
+            { new: true }
+        ).select('-password');
+        
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        
+        const userSafe = user.toObject();
+        userSafe.id = userSafe._id.toString();
+        res.json({ success: true, user: userSafe });
+    } catch (e) {
+        res.status(500).json({ error: 'Profile update failed' });
+    }
 });
 
-app.get('/api/appointments', (req, res) => {
+app.get('/api/appointments', async (req, res) => {
     const { userId, role } = req.query;
     if (!userId || !role) return res.json([]);
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const userAppts = db.appointments.filter(a => role === 'doctor' ? a.doctorId === userId : a.patientId === userId);
     
-    // Populate names for convenience
-    const enriched = userAppts.map(a => {
-        const p = db.patients.find(x => x.id === a.patientId);
-        const d = db.doctors.find(x => x.id === a.doctorId);
-        return { ...a, patientName: p ? p.name : 'Unknown', doctorName: d ? d.name : 'Unknown' };
-    });
-    
-    res.json(enriched);
+    try {
+        const filter = role === 'doctor' ? { doctorId: userId } : { patientId: userId };
+        const appts = await Appointment.find(filter);
+        res.json(appts.map(a => ({ ...a.toObject(), id: a._id.toString() })));
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to load appointments' });
+    }
 });
 
 app.post('/api/appointments', async (req, res) => {
     const { patientId, doctorId, time, reason } = req.body;
     if (!patientId || !doctorId || !time) return res.status(400).json({ error: 'Missing fields' });
 
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const patient = db.patients.find(p => p.id === patientId);
-    const doctor = db.doctors.find(d => d.id === doctorId);
-    
-    if (!patient || !doctor) return res.status(400).json({ error: 'Invalid users' });
-
-    const appointment = { id: Date.now().toString(), patientId, doctorId, time, reason, status: 'pending' };
-    
-    if (!db.appointments) db.appointments = [];
-    db.appointments.push(appointment);
-    fs.writeFileSync(DB_FILE, JSON.stringify(db));
-
     try {
-        const subject = 'Appointment Booked — MediHelp';
-        const body = `Hello,\n\nA new consultation has been booked on MediHelp.\n\nPatient: ${patient.name}\nDoctor:  Dr. ${doctor.name}\nDate/Time: ${new Date(time).toLocaleString()}\nReason:  ${reason || 'Not specified'}\n\nStatus: Pending (awaiting doctor approval)\n\nLog in at http://localhost:3000 to manage this appointment.\n\n— MediHelp Medical Portal`;
-        await sendEmail(`${patient.identifier},${doctor.identifier}`, subject, body);
-    } catch(err) {
-        console.error('Email error:', err);
-    }
+        const patient = await User.findById(patientId);
+        const doctor = await User.findById(doctorId);
+        
+        if (!patient || !doctor) return res.status(400).json({ error: 'Invalid users' });
 
-    res.json({ success: true, appointment });
+        const appointment = await Appointment.create({ 
+            patientId, doctorId, time, reason, 
+            status: 'pending',
+            patientName: patient.name,
+            doctorName: doctor.name
+        });
+
+        const subject = 'Appointment Booked — MediHelp';
+        const body = `Hello,\n\nA new consultation has been booked on MediHelp.\n\nPatient: ${patient.name}\nDoctor:  Dr. ${doctor.name}\nDate/Time: ${new Date(time).toLocaleString()}\nReason:  ${reason || 'Not specified'}\n\nStatus: Pending (awaiting doctor approval)\n\nLog in for details.\n\n— MediHelp Medical Portal`;
+        sendEmail(`${patient.identifier},${doctor.identifier}`, subject, body);
+
+        res.json({ success: true, appointment: { ...appointment.toObject(), id: appointment._id.toString() } });
+    } catch (e) {
+        res.status(500).json({ error: 'Booking failed' });
+    }
 });
 
-app.post('/api/appointments/status', (req, res) => {
+app.post('/api/appointments/status', async (req, res) => {
     const { appointmentId, status } = req.body;
     if (!appointmentId || !status) return res.status(400).json({ error: 'Missing fields' });
     
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const appt = db.appointments.find(a => a.id === appointmentId);
-    if (!appt) return res.status(404).json({ error: 'Appointment not found' });
-    
-    appt.status = status;
-    fs.writeFileSync(DB_FILE, JSON.stringify(db));
+    try {
+        const appt = await Appointment.findByIdAndUpdate(appointmentId, { status }, { new: true });
+        if (!appt) return res.status(404).json({ error: 'Appointment not found' });
+        
+        const patient = await User.findById(appt.patientId);
+        const doctor  = await User.findById(appt.doctorId);
+        if (patient && doctor) {
+            const label = status === 'approved' ? 'APPROVED ✓' : 'DECLINED ✕';
+            const body = `Hello ${patient.name},\n\nYour appointment request with Dr. ${doctor.name} has been ${label}.\n\nDate/Time: ${new Date(appt.time).toLocaleString()}\nReason: ${appt.reason}\n\nLog in to view details.\n\n— MediHelp Medical Portal`;
+            sendEmail(patient.identifier, `Appointment ${label} — MediHelp`, body);
+        }
 
-    // Send status notification email
-    const patient = db.patients.find(p => p.id === appt.patientId);
-    const doctor  = db.doctors.find(d => d.id === appt.doctorId);
-    if (patient && doctor) {
-        const label = status === 'approved' ? 'APPROVED ✓' : 'DECLINED ✕';
-        const body = `Hello ${patient.name},\n\nYour appointment request with Dr. ${doctor.name} has been ${label}.\n\nDate/Time: ${new Date(appt.time).toLocaleString()}\nReason: ${appt.reason}\n\nLog in to view your updated appointment status.\n\n— MediHelp Medical Portal`;
-        sendEmail(patient.identifier, `Appointment ${label} — MediHelp`, body);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Status update failed' });
     }
-
-    res.json({ success: true });
 });
 
 
 // ── Tickets (chatbot escalations) ─────────────────────
-app.post('/api/tickets', (req, res) => {
+app.post('/api/tickets', async (req, res) => {
     const { patientId, doctorId, summary, chatLog } = req.body;
     if (!patientId || !summary) return res.status(400).json({ error: 'Missing fields' });
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const patient = db.patients.find(p => p.id === patientId);
-    if (!patient) return res.status(404).json({ error: 'Patient not found' });
-    const ticket = {
-        id: Date.now().toString(),
-        patientId, doctorId: doctorId || null,
-        patientName: patient.name,
-        summary, chatLog: chatLog || [],
-        status: 'open',
-        createdAt: new Date().toISOString()
-    };
-    if (!db.tickets) db.tickets = [];
-    db.tickets.push(ticket);
-    fs.writeFileSync(DB_FILE, JSON.stringify(db));
-    // Email the doctor if doctorId provided
-    if (doctorId) {
-        const doctor = db.doctors.find(d => d.id === doctorId);
-        if (doctor) {
-            const body = `Hello Dr. ${doctor.name},\n\nA patient (${patient.name}) has raised a health query that needs your attention.\n\nSUMMARY:\n${summary}\n\nPlease log in to MediHelp to review the full ticket.\n\n— MediHelp Health Assistant`;
-            sendEmail(doctor.identifier, `Health Query Ticket from ${patient.name} — MediHelp`, body);
+    
+    try {
+        const patient = await User.findById(patientId);
+        if (!patient) return res.status(404).json({ error: 'Patient not found' });
+        
+        const ticket = await Ticket.create({
+            patientId, 
+            doctorId: doctorId || null,
+            patientName: patient.name,
+            summary, chatLog: chatLog || [],
+            status: 'open'
+        });
+
+        // Email the doctor if doctorId provided
+        if (doctorId) {
+            const doctor = await User.findById(doctorId);
+            if (doctor) {
+                const body = `Hello Dr. ${doctor.name},\n\nA patient (${patient.name}) has raised a health query.\n\nSUMMARY:\n${summary}\n\nPlease review.\n\n— MediHelp Health Assistant`;
+                sendEmail(doctor.identifier, `Health Query Ticket from ${patient.name} — MediHelp`, body);
+            }
         }
+        res.json({ success: true, ticket: { ...ticket.toObject(), id: ticket._id.toString() } });
+    } catch (e) {
+        res.status(500).json({ error: 'Ticket creation failed' });
     }
-    res.json({ success: true, ticket });
 });
-
-app.get('/api/tickets', (req, res) => {
+app.get('/api/tickets', async (req, res) => {
     const { doctorId, patientId } = req.query;
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    if (!db.tickets) return res.json([]);
-    let tickets = db.tickets;
-    if (doctorId) tickets = tickets.filter(t => t.doctorId === doctorId || !t.doctorId);
-    if (patientId) tickets = tickets.filter(t => t.patientId === patientId);
-    res.json(tickets.reverse()); // newest first
+    try {
+        let filter = {};
+        if (doctorId) filter = { $or: [{ doctorId }, { doctorId: null }] };
+        if (patientId) filter = { patientId };
+        
+        const tickets = await Ticket.find(filter).sort({ createdAt: -1 });
+        res.json(tickets.map(t => ({ ...t.toObject(), id: t._id.toString() })));
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to load tickets' });
+    }
 });
 
-app.patch('/api/tickets/:id', (req, res) => {
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    const ticket = (db.tickets || []).find(t => t.id === req.params.id);
-    if (!ticket) return res.status(404).json({ error: 'Not found' });
-    if (req.body.status) ticket.status = req.body.status;
-    if (req.body.doctorNote) ticket.doctorNote = req.body.doctorNote;
-    fs.writeFileSync(DB_FILE, JSON.stringify(db));
-    res.json({ success: true });
+app.patch('/api/tickets/:id', async (req, res) => {
+    const { status, doctorNote } = req.body;
+    try {
+        const update = {};
+        if (status) update.status = status;
+        if (doctorNote) update.doctorNote = doctorNote;
+        
+        const ticket = await Ticket.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
+        if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+        
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Ticket update failed' });
+    }
 });
 
 app.use((req, res) => {
