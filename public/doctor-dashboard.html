@@ -283,6 +283,7 @@
         const user = JSON.parse(userStr);
         if (user.role !== 'doctor') { window.location.href = '/doctor-login.html'; return; }
         userProfile = user;
+        userProfile.id = user.id || user._id; // Robustness fallback
 
         const cleanName = user.name.replace(/^Dr\.?\s*/i, '');
         document.getElementById('userName').textContent = cleanName;
@@ -297,22 +298,29 @@
     // ── Load dashboard data ─────────────────────────────────
     async function initData() {
         try {
+            const uid = userProfile.id || userProfile._id;
             // appointments
-            const resAppts = await fetch(`/api/appointments?userId=${userProfile.id}&role=doctor`);
+            const resAppts = await fetch(`/api/appointments?userId=${uid}&role=doctor`);
             const appts = await resAppts.json();
             const pending = appts.filter(a => a.status === 'pending');
             const approved = appts.filter(a => a.status === 'approved');
 
-            document.getElementById('stat-appts').textContent = appts.length;
-            document.getElementById('stat-pending').textContent = pending.length;
-            document.getElementById('stat-approved').textContent = approved.length;
+            const sAppts = document.getElementById('stat-appts');
+            if (sAppts) sAppts.textContent = appts.length;
+            const sPending = document.getElementById('stat-pending');
+            if (sPending) sPending.textContent = pending.length;
+            const sApproved = document.getElementById('stat-approved');
+            if (sApproved) sApproved.textContent = approved.length;
 
             // Pending badge on nav
             if (pending.length > 0) {
                 const badge = document.getElementById('pendingBadge');
-                badge.textContent = pending.length;
-                badge.classList.remove('hidden');
-                document.getElementById('dropPendingCount').textContent = pending.length;
+                if (badge) {
+                    badge.textContent = pending.length;
+                    badge.classList.remove('hidden');
+                }
+                const dBadge = document.getElementById('dropPendingCount');
+                if (dBadge) dBadge.textContent = pending.length;
             }
 
             // Dashboard pending preview
@@ -321,12 +329,14 @@
             // patients
             const resPats = await fetch('/api/patients');
             const pats = await resPats.json();
-            document.getElementById('stat-patients').textContent = pats.length;
+            const sPats = document.getElementById('stat-patients');
+            if (sPats) sPats.textContent = pats.length;
 
             // Load doctor's own profile
             const resDocs = await fetch('/api/doctors');
             const docs = await resDocs.json();
-            const me = docs.find(d => d.id === userProfile.id);
+            const myId = userProfile.id || userProfile._id;
+            const me = docs.find(d => String(d.id) === String(myId));
             if (me && me.profile) {
                 userProfile.profile = me.profile;
                 if (me.profile.specialty) {
@@ -403,10 +413,11 @@
             clinic:    document.getElementById('prof-clinic').value
         };
         try {
+            const uid = userProfile.id || userProfile._id;
             const res = await fetch('/api/profile', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: userProfile.id, role: 'doctor', profileData })
+                body: JSON.stringify({ userId: uid, role: 'doctor', profileData })
             });
             const data = await res.json();
             const msgEl = document.getElementById('profileMsg');
@@ -453,10 +464,11 @@
 
     // ── Schedule / Appointments ─────────────────────────────
     async function loadSchedule() {
+        const uid = userProfile.id || userProfile._id;
         const list = document.getElementById('scheduleList');
         list.innerHTML = '<p class="text-gray-400 text-sm">Loading...</p>';
         try {
-            const res = await fetch(`/api/appointments?userId=${userProfile.id}&role=doctor`);
+            const res = await fetch(`/api/appointments?userId=${uid}&role=doctor`);
             const appts = await res.json();
             if (appts.length === 0) {
                 list.innerHTML = '<div class="glass border border-white/5 rounded-xl p-8 text-center text-gray-400">No appointments yet. Patients will appear here once they book a consultation.</div>';
@@ -578,7 +590,8 @@
         const list = document.getElementById('ticketsList');
         list.innerHTML = '<p class="text-gray-400 text-sm">Loading...</p>';
         try {
-            const res = await fetch(`/api/tickets?doctorId=${userProfile.id}`);
+            const uid = userProfile.id || userProfile._id;
+            const res = await fetch(`/api/tickets?doctorId=${uid}`);
             const tickets = await res.json();
 
             // Update nav badge
@@ -659,7 +672,8 @@
     // Also check ticket count on dashboard load
     async function checkTicketBadge() {
         try {
-            const res = await fetch(`/api/tickets?doctorId=${userProfile.id}`);
+            const uid = userProfile.id || userProfile._id;
+            const res = await fetch(`/api/tickets?doctorId=${uid}`);
             const tickets = await res.json();
             const openCount = tickets.filter(t => t.status === 'open').length;
             if (openCount > 0) {

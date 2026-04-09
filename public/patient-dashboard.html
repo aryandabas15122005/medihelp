@@ -367,13 +367,19 @@
         const user = JSON.parse(userStr);
         if (user.role !== 'patient') { window.location.href = '/patient-login.html'; return; }
         userProfile = user;
+        userProfile.id = user.id || user._id; // Robustness fallback
 
         // Header
-        document.getElementById('userName').textContent = user.name;
-        document.getElementById('avatarInitial').textContent = user.name.charAt(0).toUpperCase();
-        document.getElementById('dropName').textContent = user.name;
-        document.getElementById('dropEmail').textContent = user.identifier;
-        document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const elName = document.getElementById('userName');
+        if (elName) elName.textContent = user.name;
+        const elInitial = document.getElementById('avatarInitial');
+        if (elInitial) elInitial.textContent = user.name.charAt(0).toUpperCase();
+        const elDropName = document.getElementById('dropName');
+        if (elDropName) elDropName.textContent = user.name;
+        const elDropEmail = document.getElementById('dropEmail');
+        if (elDropEmail) elDropEmail.textContent = user.identifier;
+        const elDate = document.getElementById('headerDate');
+        if (elDate) elDate.textContent = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
         loadProfileFromServer();
         loadOverviewAppointments();
@@ -384,7 +390,8 @@
         try {
             const res = await fetch('/api/patients');
             const pats = await res.json();
-            const me = pats.find(p => p.id === userProfile.id);
+            const myId = userProfile.id || userProfile._id;
+            const me = pats.find(p => String(p.id) === String(myId));
             if (me && me.profile) {
                 userProfile.profile = me.profile;
                 updateDashboardCards();
@@ -394,19 +401,29 @@
 
     function updateDashboardCards() {
         const p = userProfile.profile || {};
-        document.getElementById('disp-age').textContent = p.age ? p.age + ' yrs' : '—';
-        document.getElementById('disp-blood').textContent = p.blood_type || '—';
-        document.getElementById('disp-address').textContent = p.address || '—';
-        document.getElementById('disp-height').textContent = p.height ? p.height + ' cm' : '—';
-        document.getElementById('disp-weight').textContent = p.weight ? p.weight + ' kg' : '—';
-        document.getElementById('disp-meds').textContent = p.medications || 'No medications on file. Update your profile to add them.';
+        const elAge = document.getElementById('disp-age');
+        if (elAge) elAge.textContent = p.age ? p.age + ' yrs' : '—';
+        const elBlood = document.getElementById('disp-blood');
+        if (elBlood) elBlood.textContent = p.blood_type || '—';
+        const elAddr = document.getElementById('disp-address');
+        if (elAddr) elAddr.textContent = p.address || '—';
+        const elHeight = document.getElementById('disp-height');
+        if (elHeight) elHeight.textContent = p.height ? p.height + ' cm' : '—';
+        const elWeight = document.getElementById('disp-weight');
+        if (elWeight) elWeight.textContent = p.weight ? p.weight + ' kg' : '—';
+        const elMeds = document.getElementById('disp-meds');
+        if (elMeds) elMeds.textContent = p.medications || 'No medications on file. Update your profile to add them.';
+        
         // BMI
-        if (p.height && p.weight) {
-            const h = parseFloat(p.height) / 100;
-            const bmi = (parseFloat(p.weight) / (h * h)).toFixed(1);
-            document.getElementById('disp-bmi').textContent = bmi;
-        } else {
-            document.getElementById('disp-bmi').textContent = '—';
+        const elBmi = document.getElementById('disp-bmi');
+        if (elBmi) {
+            if (p.height && p.weight) {
+                const h = parseFloat(p.height) / 100;
+                const bmi = (parseFloat(p.weight) / (h * h)).toFixed(1);
+                elBmi.textContent = bmi;
+            } else {
+                elBmi.textContent = '—';
+            }
         }
     }
 
@@ -468,7 +485,7 @@
             const res = await fetch('/api/profile', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: userProfile.id, role: 'patient', profileData })
+                body: JSON.stringify({ userId: userProfile.id || userProfile._id, role: 'patient', profileData })
             });
             const data = await res.json();
             const msgEl = document.getElementById('profileMsg');
@@ -691,7 +708,8 @@
 
     async function loadOverviewAppointments() {
         try {
-            const res = await fetch(`/api/appointments?userId=${userProfile.id}&role=patient`);
+            const uid = userProfile.id || userProfile._id;
+            const res = await fetch(`/api/appointments?userId=${uid}&role=patient`);
             const appts = await res.json();
             const list = document.getElementById('overviewApptList');
             const upcoming = appts.filter(a => a.status !== 'rejected').slice(0, 3);
@@ -723,7 +741,8 @@
         const list = document.getElementById('appointmentsList');
         list.innerHTML = '<p class="text-gray-400 text-sm">Loading...</p>';
         try {
-            const res = await fetch(`/api/appointments?userId=${userProfile.id}&role=patient`);
+            const uid = userProfile.id || userProfile._id;
+            const res = await fetch(`/api/appointments?userId=${uid}&role=patient`);
             const appts = await res.json();
             if (appts.length === 0) {
                 list.innerHTML = `<div class="glass border border-white/5 rounded-xl p-8 text-center">
@@ -919,14 +938,15 @@
 
     async function raiseTicket(summary) {
         try {
-            var apptRes = await fetch('/api/appointments?userId=' + userProfile.id + '&role=patient');
+            const uid = userProfile.id || userProfile._id;
+            var apptRes = await fetch('/api/appointments?userId=' + uid + '&role=patient');
             var appts = await apptRes.json();
             var linked = appts.find(function(a){ return a.status !== 'rejected'; });
             var doctorId = linked ? linked.doctorId : null;
             var res = await fetch('/api/tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ patientId: userProfile.id, doctorId: doctorId, summary: summary, chatLog: chatHistory.slice(-20) })
+                body: JSON.stringify({ patientId: uid, doctorId: doctorId, summary: summary, chatLog: chatHistory.slice(-20) })
             });
             var data = await res.json();
             if (data.success) {
@@ -936,7 +956,6 @@
                     : 'Ticket raised! Book an appointment to link it to a doctor who can review it.';
                 banner.classList.remove('hidden');
                 setTimeout(function(){ banner.classList.add('hidden'); }, 9000);
-            }
             }
         } catch(e) { console.error(e); }
     }

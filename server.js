@@ -10,9 +10,14 @@ const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'database.json');
 
 // ── MongoDB Connection ────────────────────────────────────
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('✓ Connected to MongoDB Atlas'))
-    .catch(err => console.error('✕ MongoDB Connection Error:', err));
+mongoose.connect(process.env.MONGODB_URI, { 
+    serverSelectionTimeoutMS: 10000 // 10 second timeout
+})
+.then(() => console.log('✅ [MONGODB] Connected to Atlas Cloud'))
+.catch(err => {
+    console.error('❌ [MONGODB] Connection Error:', err.message);
+    console.log('TIP: Check if your IP address is whitelisted in MongoDB Atlas (Network Access).');
+});
 
 // ── Schemas ───────────────────────────────────────────────
 const UserSchema = new mongoose.Schema({
@@ -133,6 +138,7 @@ app.post('/api/register', async (req, res) => {
         
         const userSafe = user.toObject();
         delete userSafe.password;
+        userSafe.id = userSafe._id.toString();
         res.json({ success: true, user: userSafe });
     } catch (e) {
         res.status(500).json({ error: 'Registration failed' });
@@ -162,7 +168,11 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/doctors', async (req, res) => {
     try {
         const doctors = await User.find({ role: 'doctor' }).select('-password');
-        res.json(doctors.map(d => ({ ...d.toObject(), id: d._id.toString() })));
+        res.json(doctors.map(d => {
+            const doc = d.toObject();
+            doc.id = d._id.toString();
+            return doc;
+        }));
     } catch (e) {
         res.status(500).json({ error: 'Failed to load doctors' });
     }
@@ -171,7 +181,11 @@ app.get('/api/doctors', async (req, res) => {
 app.get('/api/patients', async (req, res) => {
     try {
         const patients = await User.find({ role: 'patient' }).select('-password');
-        res.json(patients.map(p => ({ ...p.toObject(), id: p._id.toString() })));
+        res.json(patients.map(p => {
+            const pat = p.toObject();
+            pat.id = p._id.toString();
+            return pat;
+        }));
     } catch (e) {
         res.status(500).json({ error: 'Failed to load patients' });
     }
