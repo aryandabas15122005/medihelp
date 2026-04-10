@@ -7,11 +7,16 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_FILE = path.join(__dirname, 'database.json');
+
+// Health check for Render
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
+app.use(express.json());
+app.use(express.static('public'));
 
 // ── MongoDB Connection ────────────────────────────────────
 mongoose.connect(process.env.MONGODB_URI, { 
-    serverSelectionTimeoutMS: 10000 // 10 second timeout
+    serverSelectionTimeoutMS: 15000 // 15 second timeout for slow starts
 })
 .then(() => console.log('✅ [MONGODB] Connected to Atlas Cloud'))
 .catch(err => {
